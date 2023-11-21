@@ -2,30 +2,46 @@ import streamlit as st
 import cv2
 import numpy as np
 from datetime import datetime
-from Data_manager import add_property_to_session
 import time
+import dlib
+
+from Data_manager import add_property_to_session
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner="Please wait...")
 def models_loading(model):
-    if model == "gender":
-        # pretrained age detection model - prototxt is the network architecture, caffemodel is the weights
-        selected_model = cv2.dnn.readNetFromCaffe("pages/models/gender/gender_deploy.prototxt",
-                                                  "pages/models/gender/gender_net.caffemodel")
-    if model == "age":
-        selected_model = cv2.dnn.readNetFromCaffe("pages/models/age/age_deploy.prototxt", "pages/models/age/age_net.caffemodel")
-    # if model == "emotions":
-    #
-    # else:
-
-    return selected_model
+    return cv2.dnn.readNetFromCaffe(f"pages/models/{model}/{model}_deploy.prototxt",
+                                    f"pages/models/{model}/{model}_net.caffemodel")
 
 
-# st.set_page_config(layout="wide")
+def detect_label(frame, model, labels, attribute_name):
+    blob = cv2.dnn.blobFromImage(frame, 1.0, (227, 227), (78.4263377603, 87.7689143744, 114.895847746), swapRB=False)
+    model.setInput(blob)
+    prediction = model.forward()
+    predicted_class = np.argmax(prediction)
+    detection = labels[predicted_class]
 
-st.title("Webcam Capture")
+    st.session_state.user_info[attribute_name] = detection
 
-# gender_net = cv2.dnn.readNetFromCaffe("pages/models/gender/gender_deploy.prototxt", "pages/models/gender/gender_net.caffemodel")
+    return detection
+
+
+def detection(frame, detection_type):
+    if detection_type not in models or detection_type not in labels:
+        st.warning(f"Unsupported detection type: {detection_type}")
+        return None
+
+    model = models[detection_type]
+    label = labels[detection_type]
+
+    return detect_label(frame, model, label, detection_type)
+
+
+def disappearing_success_message(message_text, sleeptime):
+    message = st.success(message_text)
+    time.sleep(sleeptime)
+    message.empty()
+
 
 if "user_info" not in st.session_state:
     st.session_state.user_info = {
@@ -33,12 +49,29 @@ if "user_info" not in st.session_state:
         "Date": datetime.now().date(),
         "Gender": "Unknown",
         "Age": "Unknown"
-
     }
+
+if "start_webcam" not in st.session_state:
+    st.session_state.start_webcam = False
+
+models = {
+    "Gender": models_loading("gender"),
+    "Age": models_loading("age"),
+    # Add other detection types if needed
+}
+
+labels = {
+    "Gender": ["Male", "Female"],
+    "Age": ['(0-2)', '(4-6)', '(8-12)', '(15-20)', '(25-32)', '(38-43)', '(48-53)', '(60-100)'],
+    # Add other detection types if needed
+}
+
+detector = dlib.get_frontal_face_detector()
+
+st.title("Webcam Capture")
 
 user_name = st.text_input("Please enter your name")
 current_date = st.session_state.user_info["Date"]
-# st.session_state.webcam_start = False
 
 if st.button("Submit Name"):
     if not user_name:
@@ -47,16 +80,13 @@ if st.button("Submit Name"):
         st.session_state.user_info["Name"] = user_name
         st.session_state.user_info["Gender"] = "Unknown"
         st.session_state.user_info["Age"] = "Unknown"
-        entry_success_message = st.success("Entry added Successfully")
-        time.sleep(2)
-        entry_success_message.empty()
+        disappearing_success_message("Entry added Successfully", 2)
 
-        st.session_state.webcam_start = True
+        st.session_state.start_webcam = True
 
-start_webcam = st.checkbox("Start Webcam", key="webcam_start")
+# start_webcam = st.checkbox("Start Webcam", key="webcam_start")
 
-
-if st.session_state.webcam_start:
+if st.session_state.start_webcam:
 
     # Create a VideoCapture object for the webcam (0 for the default webcam)
     cap = cv2.VideoCapture(0)
@@ -66,12 +96,6 @@ if st.session_state.webcam_start:
         st.error("Error: Could not open webcam.")
     else:
         webcam_success_message = st.success("Webcam is active.")
-        # time.sleep(2)
-        # webcam_success_message.empty()
-
-    # # Create a radio button for selecting what to detect
-    # detection_option = st.radio("Choose what to detect on you", ["None", "Gender", "Age", "Facial Expressions"],
-    #                             key="detection_option")
 
     selectbox_option = st.sidebar.selectbox(
         "Choose what to detect on you",
@@ -79,7 +103,7 @@ if st.session_state.webcam_start:
         key="detection option"
     )
 
-    if st.button("Add user data", key="add_user_data"):
+    if st.sidebar.button("Add user data to the database"):
         entry = {
             "Name": st.session_state.user_info["Name"],
             "Date": st.session_state.user_info["Date"],
@@ -87,6 +111,9 @@ if st.session_state.webcam_start:
             "Age": st.session_state.user_info["Age"]
         }
         add_property_to_session(entry)
+        with st.sidebar:
+            disappearing_success_message("User data added successfully!", 2)
+        st.session_state.start_webcam = False
 
     # Video recording for later
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -105,88 +132,42 @@ if st.session_state.webcam_start:
             st.warning("Warning: Could not read a frame from the webcam.")
             break
 
-        # It is used to transform the inout image, to fit the model requirements
-        blob = cv2.dnn.blobFromImage(frame, 1.0, (227, 227), (78.4263377603, 87.7689143744, 114.895847746),
-                                     swapRB=False)
+        faces = detector(frame)
 
-        # Apply the selected detection task to the webcam frame
-        if selectbox_option == "Gender":
-
-            gender_net = models_loading("gender")
-
-            gender_net.setInput(blob)
-            gender_preds = gender_net.forward()
-
-            predicted_class = np.argmax(gender_preds)
-            gender_labels = ["Male", "Female"]
-            gender = gender_labels[predicted_class]
-
-            # Display the frame with the detected gender
-            text = f"Gender: {gender}"
-            # cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            # placeholder.image(frame, channels="BGR", use_column_width=True)
-
-            st.session_state.user_info["Gender"] = gender
-
-            current_detection_result = gender
-
-            pass
-        elif selectbox_option == "Age":
-
-            age_net = models_loading("age")
-
-            age_net.setInput(blob)
-            age_preds = age_net.forward()
-
-            predicted_class = np.argmax(age_preds)
-            age_labels = ['(0-2)', '(4-6)', '(8-12)', '(15-20)', '(25-32)', '(38-43)', '(48-53)', '(60-100)']
-            age = age_labels[predicted_class]
-            text = f"Age: {age}"
-            # cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            # placeholder.image(frame, channels="BGR", use_column_width=True)
-
-            st.session_state.user_info["Age"] = age
-
-            current_detection_result = age
-
-            pass
-        # elif detection_option == "Facial Expressions":
-        #
-        #     pass
-
+        if len(faces) < 1:
+            with st.sidebar:
+                st.toast("No faces are detected!")
+                webcam_placeholder.image(frame, channels="BGR", use_column_width=True)
+        elif len(faces) > 1:
+            st.toast("Multiple faces are detected!")
         else:
-            current_detection_result = None
+            for face in faces:
+                x, y, w, h = face.left(), face.top(), face.width(), face.height()
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-            # Update the placeholder with the current webcam frame
-        if current_detection_result:
-            # Draw the detection result text on the frame using cv2.putText
-            cv2.putText(frame, current_detection_result, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            if selectbox_option == "Gender":
+                current_detection_result = detection(frame, "Gender")
+                pass
+            elif selectbox_option == "Age":
+                current_detection_result = detection(frame, "Age")
+                pass
 
-            # Update the placeholder with the current webcam frame
-        webcam_placeholder.image(frame, channels="BGR", use_column_width=True)
+            else:
+                current_detection_result = None
 
-        # If the detection result has changed, update the placeholder
-        # if current_detection_result != previous_detection_result:
-        #     # Update the placeholder with the current detection result
-        #     # ... (add your logic here based on the current_detection_result)
-        #     previous_detection_result = current_detection_result
-        # # If "None" is selected, do nothing (original frame)
+                # Update the placeholder with the current webcam frame
+            if current_detection_result:
+                # Draw the detection result text on the frame using cv2.putText
+                cv2.putText(frame, current_detection_result, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        # Display the frame in the Streamlit app
-        # placeholder.image(frame, channels="BGR", use_column_width=True)
+                # Update the placeholder with the current webcam frame
+            webcam_placeholder.image(frame, channels="BGR", use_column_width=True)
 
-        # out.write(frame)
+            # Display the frame in the Streamlit app
+            # placeholder.image(frame, channels="BGR", use_column_width=True)
+
+            # out.write(frame)
 
     # Release the webcam when done
     cap.release()
     # out.release()
-
-
-
-
-
-
-
-
-
-
