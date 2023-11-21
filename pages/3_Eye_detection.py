@@ -17,6 +17,7 @@ def load_model(model_type):
     return DETECTOR_MODELS.get(model_type)
 
 
+
 @st.cache_data(show_spinner="Converting image...")
 def image_to_numpy(image):
     uploaded_image = Image.open(image)
