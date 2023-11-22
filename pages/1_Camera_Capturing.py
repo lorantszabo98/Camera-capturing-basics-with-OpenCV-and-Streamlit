@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime
 import time
 import dlib
+from collections import Counter
 
 from Data_manager import add_property_to_session
 
@@ -21,7 +22,7 @@ def detect_label(frame, model, labels, attribute_name):
     predicted_class = np.argmax(prediction)
     detection = labels[predicted_class]
 
-    st.session_state.user_info[attribute_name] = detection
+    # st.session_state.user_info[attribute_name] = detection
 
     return detection
 
@@ -43,6 +44,31 @@ def disappearing_success_message(message_text, sleeptime):
     message.empty()
 
 
+def find_most_common_element(data_array, default_value):
+    if not data_array:
+        return default_value
+
+    counts = Counter(data_array)
+    return max(counts, key=counts.get)
+
+
+def most_common_element():
+    # Set default values
+    st.session_state.user_info["Age"] = "Unknown"
+    st.session_state.user_info["Gender"] = "Unknown"
+
+    # Find the most common gender and age
+    most_common_gender = find_most_common_element(st.session_state.gender_detections, "Unknown")
+    most_common_age = find_most_common_element(st.session_state.age_detections, "Unknown")
+
+    # Update session state with the most common values
+    st.session_state.user_info["Gender"] = most_common_gender
+    st.session_state.user_info["Age"] = most_common_age
+
+    # # Display the most common elements in the Streamlit app
+    # st.write(f"The array: {st.session_state.gender_detections}, and the most common gender {most_common_gender}")
+    # st.write(f"The array: {st.session_state.age_detections}, and the most common age {most_common_age}")
+
 if "user_info" not in st.session_state:
     st.session_state.user_info = {
         "Name": "",
@@ -54,6 +80,12 @@ if "user_info" not in st.session_state:
 if "start_webcam" not in st.session_state:
     st.session_state.start_webcam = False
 
+if "age_detections" not in st.session_state:
+    st.session_state.age_detections = []
+
+if "gender_detections" not in st.session_state:
+    st.session_state.gender_detections = []
+
 models = {
     "Gender": models_loading("gender"),
     "Age": models_loading("age"),
@@ -61,10 +93,13 @@ models = {
 }
 
 labels = {
-    "Gender": ["Male", "Female"],
+    "Gender": ['Male', 'Female'],
     "Age": ['(0-2)', '(4-6)', '(8-12)', '(15-20)', '(25-32)', '(38-43)', '(48-53)', '(60-100)'],
     # Add other detection types if needed
 }
+
+# age_detections = ['(0-2)', '(8-12)']
+# gender_detections = ['Male', 'Female']
 
 detector = dlib.get_frontal_face_detector()
 
@@ -103,7 +138,7 @@ if st.session_state.start_webcam:
         key="detection option"
     )
 
-    if st.sidebar.button("Add user data to the database"):
+    if st.sidebar.button("Add user data to the database", on_click=most_common_element):
         entry = {
             "Name": st.session_state.user_info["Name"],
             "Date": st.session_state.user_info["Date"],
@@ -114,6 +149,7 @@ if st.session_state.start_webcam:
         with st.sidebar:
             disappearing_success_message("User data added successfully!", 2)
         st.session_state.start_webcam = False
+        # st.session_state.clear()
 
     # Video recording for later
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -147,9 +183,11 @@ if st.session_state.start_webcam:
 
             if selectbox_option == "Gender":
                 current_detection_result = detection(frame, "Gender")
+                st.session_state.gender_detections += [current_detection_result]
                 pass
             elif selectbox_option == "Age":
                 current_detection_result = detection(frame, "Age")
+                st.session_state.age_detections += [current_detection_result]
                 pass
 
             else:
