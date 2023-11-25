@@ -11,6 +11,8 @@ This Streamlit app is designed for capturing webcam feed, detecting faces, and c
 
 - Gender and Age Classification: Gender and age are classified using pre-trained models, and the most common detection results are stored.
 
+- Blink Detection: Blink detection using dlib facial landmarks and EAR(Eye asprct ratio) to determine a blink.
+
 # Instructions
 Installation:
 
