@@ -38,7 +38,6 @@ def set_blink_threshold(calibration_ear_values, frame_count):
         return 0
     else:
         mean = ear_value_calibration(calibration_ear_values, frame_count)
-        st.write(len(calibration_ear_values), frame_count)
         return mean - 0.05
 
 
@@ -58,9 +57,15 @@ def calculate_lip_distance(shape):
 
 def display_altair_chart(values, dataframe, threshold):
     column_names = list(dataframe.columns)
-    st.write(column_names)
+    if not column_names:
+        st.warning("DataFrame is empty. Provide a DataFrame with valid columns.")
+        return
+
+    x_column = column_names[0]
+    y_column = column_names[1]
+
     if values:
-        new_data = pd.DataFrame({column_names[0]: [len(values)], column_names[1]: [values[-1]]})
+        new_data = pd.DataFrame({x_column: range(1, len(values) + 1), y_column: values})
         dataframe = pd.concat([dataframe, new_data])
 
         # show only 50 frames EAR data at the same time
@@ -68,9 +73,9 @@ def display_altair_chart(values, dataframe, threshold):
 
     # Create Altair Lip_distance_chart
     chart = alt.Chart(dataframe).mark_line().encode(
-        x=column_names[0],
-        y=column_names[1],
-        tooltip=[column_names[1]]
+        x=x_column,
+        y=y_column,
+        tooltip=[y_column]
     ).properties(width=600, height=300)
 
     # Add vertical line at the threshold
@@ -80,6 +85,7 @@ def display_altair_chart(values, dataframe, threshold):
     )
 
     return chart, threshold_line
+
 
 # def compute_fps(ptime = 0):
 #     ctime = time.time()
@@ -237,51 +243,8 @@ while cap.isOpened():
 
                 blink_text.text(f"Total Blinks: {st.session_state.BLINK_TOTAL_COUNTER}")
 
-            # altairchart for EAR display
-            if ear_values:
-                EAR_new_data = pd.DataFrame({'frame': [len(ear_values)], 'EAR': [ear_values[-1]]})
-                EAR_chart_data = pd.concat([EAR_chart_data, EAR_new_data])
-
-                # show only 50 frames EAR data at the same time
-                EAR_chart_data = EAR_chart_data[-50:]
-
-            # Create Altair Lip_distance_chart
-            EAR_chart = alt.Chart(EAR_chart_data).mark_line().encode(
-                x='frame',
-                y='EAR',
-                tooltip=['EAR']
-            ).properties(width=600, height=300)
-
-            # Add vertical line at the threshold
-            EAR_threshold_line = alt.Chart(pd.DataFrame({'threshold': [BLINK_THRES]})).mark_rule(color='red').encode(
-                y='threshold',
-                size=alt.value(1)
-            )
-
-            # altairchart for lip distance display
-            if lip_distance_values:
-                LIP_new_data = pd.DataFrame(
-                    {'frame': [len(lip_distance_values)], 'lip_distance': [lip_distance_values[-1]]})
-                LIP_chart_data = pd.concat([LIP_chart_data, LIP_new_data])
-
-                # show only 50 frames EAR data at the same time
-                LIP_chart_data = LIP_chart_data[-50:]
-
-            # Create Altair Lip_distance_chart
-            LIP_chart = alt.Chart(LIP_chart_data).mark_line().encode(
-                x='frame',
-                y='lip_distance',
-                tooltip=['lip_distance']
-            ).properties(width=600, height=300)
-
-            # Add vertical line at the threshold
-            LIP_threshold_line = alt.Chart(pd.DataFrame({'threshold': [YAWN_THRES]})).mark_rule(color='red').encode(
-                y='threshold',
-                size=alt.value(1)
-            )
-
-            # EAR_chart, EAR_threshold_line = display_altair_chart(ear_values, EAR_chart_data, BLINK_THRES)
-            # LIP_chart, LIP_threshold_line = display_altair_chart(lip_distance_values, LIP_chart_data, YAWN_THRES)
+            EAR_chart, EAR_threshold_line = display_altair_chart(ear_values, EAR_chart_data, BLINK_THRES)
+            LIP_chart, LIP_threshold_line = display_altair_chart(lip_distance_values, LIP_chart_data, YAWN_THRES)
 
             with tab1:
                 EAR_chart_placeholder.altair_chart(EAR_chart + EAR_threshold_line)
