@@ -26,22 +26,26 @@ def calculate_ear(eye):
 
 
 # calculate the mean of the captured EAR values during the calibration process
-def ear_value_calibration(calibration_ear_values, frame_count):
-    if frame_count <= len(calibration_ear_values):
-        mean_ear = sum(calibration_ear_values[:frame_count]) / frame_count
-        return mean_ear
+def mean_of_calibration_values(calibration_values, frame_count):
+    if frame_count <= len(calibration_values):
+        mean = sum(calibration_values[:frame_count]) / frame_count
+        return mean
     else:
         return None
 
 
 # set blink threshold by dividing the calibration value by a constant
-def set_blink_threshold(calibration_ear_values, frame_count):
+def set_threshold(calibration_values, frame_count, value, subtract=True):
     # if the calibration process was not finished (no detected face for 5 sec, then return 0)
     if len(calibration_ear_values) == 0 or frame_count == 0:
         return 0
     else:
-        mean = ear_value_calibration(calibration_ear_values, frame_count)
-        return mean - 0.1
+        mean = mean_of_calibration_values(calibration_values, frame_count)
+
+        if subtract:
+            return mean - value
+        else:
+            return mean + value
 
 
 # calculating lip distance based on facial landmarks
@@ -159,6 +163,7 @@ with tab2:
 ear_values = []
 calibration_ear_values = []
 lip_distance_values = []
+calibration_lip_distance_values = []
 
 # Create a DataFrame for Altair Lip_distance_chart
 EAR_chart_data = pd.DataFrame(columns=['frame', 'EAR'])
@@ -220,18 +225,7 @@ while cap.isOpened():
         cv2.drawContours(frame, [lip_hull], -1, (0, 255, 0), 1)
 
         lip_dist = calculate_lip_distance(shape)
-        lip_distance_values.append(lip_dist)
-
-        # Yawn detection
-        if lip_dist < YAWN_THRESHOLD:
-            st.session_state.YAWN_COUNT_FRAME += 1  # incrementing the frame count
-        else:
-            if st.session_state.YAWN_COUNT_FRAME >= YAWN_AR_CONSEC_FRAMES:
-                st.session_state.YAWN_TOTAL_NUMBER += 1
-
-            st.session_state.YAWN_COUNT_FRAME = 0
-
-            yawn_text.text(f" Total yawns: {st.session_state.YAWN_TOTAL_NUMBER}")
+        # lip_distance_values.append(lip_dist)
 
         elapsed_time = time.time() - start_time
 
@@ -242,6 +236,7 @@ while cap.isOpened():
             info_message.info("Please look at your webcam picture and keep your mouth shut for 5 seconds!")
 
             calibration_ear_values.append(avg)
+            calibration_lip_distance_values.append(lip_dist)
             frame_counter += 1
 
         # after the first 5 sec the blink detection could start
@@ -249,9 +244,11 @@ while cap.isOpened():
             info_message.empty()
             progress_bar.empty()
 
-            BLINK_THRESHOLD = set_blink_threshold(calibration_ear_values, frame_counter)
+            BLINK_THRESHOLD = set_threshold(calibration_ear_values, frame_counter, 0.1, True)
+            YAWN_THRESHOLD = set_threshold(calibration_lip_distance_values, frame_counter, 20, False)
 
             ear_values.append(avg)
+            lip_distance_values.append(lip_dist)
 
             # blink detection
             if avg < BLINK_THRESHOLD:
@@ -263,6 +260,17 @@ while cap.isOpened():
                 st.session_state.BLINK_COUNT_FRAME = 0
 
                 blink_text.text(f"Total Blinks: {st.session_state.BLINK_TOTAL_COUNTER}")
+
+            # Yawn detection
+            if lip_dist < YAWN_THRESHOLD:
+                st.session_state.YAWN_COUNT_FRAME += 1  # incrementing the frame count
+            else:
+                if st.session_state.YAWN_COUNT_FRAME >= YAWN_AR_CONSEC_FRAMES:
+                    st.session_state.YAWN_TOTAL_NUMBER += 1
+
+                st.session_state.YAWN_COUNT_FRAME = 0
+
+                yawn_text.text(f" Total yawns: {st.session_state.YAWN_TOTAL_NUMBER}")
 
             # displaying the Altair charts
             EAR_chart, EAR_threshold_line = display_altair_chart(ear_values, EAR_chart_data, BLINK_THRESHOLD)
