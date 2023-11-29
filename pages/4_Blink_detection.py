@@ -41,7 +41,7 @@ def set_blink_threshold(calibration_ear_values, frame_count):
         return 0
     else:
         mean = ear_value_calibration(calibration_ear_values, frame_count)
-        return mean - 0.05
+        return mean - 0.1
 
 
 # calculating lip distance based on facial landmarks
@@ -141,7 +141,7 @@ else:
     webcam_success_message = st.success("Webcam is active.")
 
 # Creating placeholders
-info_message = st.info("Please look into the camera for 5 seconds!")
+info_message = st.info("Please prepare for the calibration process, look at your webcam picture and keep your mouth shut!")
 progress_bar = st.progress(0)
 webcam_placeholder = st.empty()
 blink_text = st.text("Total Blinks: 0")
@@ -236,15 +236,16 @@ while cap.isOpened():
         elapsed_time = time.time() - start_time
 
         # calibration for dynamic EAR in the first 5 sec
-        if elapsed_time <= 5:
-            progress_value = min(100, int((elapsed_time / 5) * 100))  # Scale to 0-100
+        if 5 <= elapsed_time <= 10:
+            progress_value = min(100, int((elapsed_time / 10) * 100))
             progress_bar.progress(progress_value, text="Calibration in progress....")
+            info_message.info("Please look at your webcam picture and keep your mouth shut for 5 seconds!")
 
             calibration_ear_values.append(avg)
             frame_counter += 1
 
         # after the first 5 sec the blink detection could start
-        if elapsed_time >= 5:
+        if elapsed_time >= 10:
             info_message.empty()
             progress_bar.empty()
 
