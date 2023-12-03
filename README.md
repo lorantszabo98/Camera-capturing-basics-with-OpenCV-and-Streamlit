@@ -1,6 +1,23 @@
 # Camera-capturing-basics-with-OpenCV-and-Streamlit
 
-This Streamlit app is designed for capturing webcam feed, detecting faces, and collecting gender and age information from users. It combines face detection with gender and age classification using pre-trained models.
+This Streamlit application contains demos of various image processing tasks.
+
+It can be used for webcam capture, face detection, gender and age classification, eye detection, blink and yawn detection. In all cases the program uses pre-trained models.
+
+# Requirements
+- Python
+- Streamlit
+- OpenCV
+- dlib
+- imutils
+- numpy
+- pandas
+
+# Instructions
+Running:
+  - Execute 'streamlit run your_app_filename\Home.py' in the terminal.
+  - Access the app in your browser at http://localhost:8501.
+
 
 # Features
 - Webcam Capture: Users can start their webcam to enable face detection and information collection.
@@ -13,13 +30,3 @@ This Streamlit app is designed for capturing webcam feed, detecting faces, and c
 
 - Blink Detection: Blink detection using dlib facial landmarks and EAR(Eye aspect ratio) to determine a blink.
 
-# Instructions
-Installation:
-
-- Ensure you have Python installed.
- 
-- Install required libraries, like Streamlit, Opencv, dlib...
-
-- Run the App:
-  - Execute streamlit run your_app_filename.py in the terminal.
-  - Access the app in your browser at http://localhost:8501.
