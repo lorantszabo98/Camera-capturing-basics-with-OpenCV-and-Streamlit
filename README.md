@@ -15,7 +15,7 @@ It can be used for webcam capture, face detection, gender and age classification
 
 # Instructions
 Running:
-  - Execute 'streamlit run your_app_filename\Home.py' in the terminal.
+  - Execute `streamlit run your_app_filename\Home.py` in the terminal.
   - Access the app in your browser at http://localhost:8501.
 
 
